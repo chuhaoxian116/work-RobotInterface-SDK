@@ -4,7 +4,7 @@
 #include <cstdint>
 
 /**
- * @brief IgH、RobotRuntime 和算法之间的公共机器人数据契约。
+ * @brief IgH 内部周期桥接和算法之间的公共机器人数据契约。
  *
  * 本头文件只描述机器人业务语义和实时周期交换的数据，不包含 EtherCAT
  * PDO、IgH 句柄、CiA402 statusword/controlword 或任何具体驱动实现。
@@ -12,7 +12,7 @@
  * 周期中的数据所有权：
  * - IgH 写入 AxisFeedback；
  * - 算法读取 AxisFeedback，写入 AxisSetpoint 和 RobotServiceRequest；
- * - IgH 内部调用 RobotRuntime，将服务请求转换为驱动命令后写回 PDO。
+ * - IgH 内部将服务请求转换为驱动命令后写回 PDO。
  */
 namespace robot_interface
 {
@@ -55,8 +55,8 @@ namespace robot_interface
     /**
      * @brief 算法在当前周期给出的单轴运动目标。
      *
-     * 算法只写入这些运动目标。控制字和驱动运行模式由 IgH 内部调用
-     * RobotRuntime 后生成，不通过本结构暴露给算法。
+     * 算法只写入这些运动目标。控制字和驱动运行模式由 IgH 内部的
+     * CiA402 命令调度生成，不通过本结构暴露给算法。
      */
     struct AxisSetpoint
     {
@@ -88,7 +88,7 @@ namespace robot_interface
      *
      * IgH 在调用算法周期回调前更新 robot_feedback；算法在回调内更新
      * robot_setpoints 和 service。回调返回后，IgH 使用这些结果驱动其
-     * 私有的 RobotRuntime 与 PDO 写入流程。
+     * 私有的 CiA402 命令调度与 PDO 写入流程。
      */
     struct RobotCycleData
     {
