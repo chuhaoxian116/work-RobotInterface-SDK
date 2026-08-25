@@ -4,10 +4,11 @@
 #include <cstdint>
 
 /**
- * @brief IgH 内部周期桥接和算法之间的公共机器人数据契约。
+ * @brief IgH 周期线程与算法之间的原始实时数据契约。
  *
- * 本头文件只描述机器人业务语义和实时周期交换的数据，不包含 EtherCAT
- * PDO、IgH 句柄、CiA402 statusword/controlword 或任何具体驱动实现。
+ * 本头文件只包含每周期实际交换的数据，不包含单位转换、编码器参数、
+ * 零点、标定、FoE 内容、IgH 句柄或具体驱动实现。运动数据保持 PDO
+ * 原始表示，字段顺序和位宽是算法与 IgH 共同遵守的内存契约。
  *
  * 周期中的数据所有权：
  * - IgH 写入 AxisFeedback；
@@ -35,34 +36,33 @@ namespace robot_interface
     };
 
     /**
-     * @brief 单轴在当前周期的标准反馈。
+     * @brief 单轴在当前周期的原始实时反馈。
      *
-     * 由 IgH 从 PDO 映射后写入。位置、速度和转矩的单位必须由机器人
-     * 配置统一约定；算法不应把这些字段解释为某个驱动器的原始 PDO 布局。
+     * 由 IgH 从 TxPDO 按原值写入，不执行单位、方向或零点处理。
      */
     struct AxisFeedback
     {
-        int32_t actual_position = 0;  // 当前实际位置。
-        int32_t actual_velocity = 0;  // 当前实际速度。
-        int16_t actual_torque = 0;  // 当前实际转矩。
-        uint16_t error_code = 0;  // 当前驱动器或轴的错误码；0 通常表示没有错误。
+        int32_t actual_position = 0;  // 0x6064 原始实际位置。
+        int32_t actual_velocity = 0;  // 0x606C 原始实际速度。
+        int16_t actual_torque = 0;  // 0x6077 原始实际转矩。
+        uint32_t error_code = 0;  // 原始错误码，兼容 16/32 bit PDO。
+        uint16_t statusword = 0;  // 0x6041 原始状态字。
+        int8_t mode_display = 0;  // 0x6061 原始模式反馈。
 
         uint8_t communication_valid = 0;  // 本周期该轴的通信数据是否有效。
-        uint8_t enabled = 0;  // 该轴是否已进入可执行运动命令的使能状态。
-        RobotMode active_mode = RobotMode::kCsp;  // 当前反馈的运行模式。
     };
 
     /**
-     * @brief 算法在当前周期给出的单轴运动目标。
+     * @brief 算法在当前周期给出的单轴原始运动目标。
      *
-     * 算法只写入这些运动目标。控制字和驱动运行模式由 IgH 内部的
-     * CiA402 命令调度生成，不通过本结构暴露给算法。
+     * IgH 按原值写入 RxPDO，不执行单位、方向或零点处理。控制字和驱动
+     * 运行模式仍由 IgH 内部的 CiA402 命令调度生成。
      */
     struct AxisSetpoint
     {
-        int32_t target_position = 0;  // 目标位置。
-        int32_t target_velocity = 0;  // 目标速度。
-        int16_t target_torque = 0;  // 目标转矩。
+        int32_t target_position = 0;  // 0x607A 原始目标位置。
+        int32_t target_velocity = 0;  // 0x60FF 原始目标速度。
+        int16_t target_torque = 0;  // 0x6071 原始目标转矩。
     };
 
     /**
