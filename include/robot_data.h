@@ -97,7 +97,7 @@ namespace robot_interface
         RobotServiceRequest service{};  // 本周期高层服务请求，由算法写入。
 
         uint8_t robot_axis_count = 0;  // robot_feedback 和 robot_setpoints 中实际参与的轴数。
-        uint32_t cycle_time_ns = 0;  // 标称实时周期，单位为纳秒。
+        uint32_t cycle_time_ns = 0;    // 输入为 0 时使用库内默认 1 ms，非 0 时指定周期；库写回最终采用值。
         uint64_t cycle_count = 0;  // 从 IgH 通信循环开始累计的周期号。
     };
 
