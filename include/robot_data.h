@@ -2,6 +2,7 @@
 #define ROBOT_INTERFACE_ROBOT_DATA_H_
 
 #include <cstdint>
+#include <cstddef>
 
 /**
  * @brief IgH 周期线程与算法之间的原始实时数据契约。
@@ -18,69 +19,99 @@
 namespace robot_interface
 {
 
-    inline constexpr uint8_t kMaxRobotAxisCount = 30;  // 机器人本体支持的最大轴数。
-    inline constexpr uint8_t kMaxExternalAxisCount = 6;  // 外部扩展轴支持的最大轴数。
+    inline constexpr uint8_t kMaxSiasunServoCount = 30; // 本体siasun最大轴数。
 
-    /**
-     * @brief 算法可请求或反馈的机器人运行模式。
-     *
-     * 枚举值与常用 CiA402 模式值保持一致，调用方只能使用本业务枚举，
-     * 不需要接触任何 CiA402 类型。
-     */
-    enum class RobotMode : int8_t
+    struct SiasunServoRxPdo
     {
-        kHoming = 6, // Homing mode，回零模式。
-        kCsp = 8,    // CSP，周期同步位置模式。
-        kCsv = 9,    // CSV，周期同步速度模式。
-        kCst = 10,   // CST，周期同步转矩模式。
+        // Master -> Servo，算法写入。
+
+        int32_t target_position = 0;      // 0x607A:00
+        uint32_t digital_outputs = 0;     // 0x60FE:00
+        int32_t target_velocity = 0;      // 0x60FF:00
+        uint16_t controlword = 0;         // 0x6040:00
+        int16_t target_torque = 0;        // 0x6071:00
+        int8_t operation_mode = 0;        // 0x6060:00
+        uint8_t safe_control = 0;         // 0x7006:00
+        int32_t target_safe_position = 0; // 0x7007:00
+        uint32_t user_output = 0;         // 0x7008:00
     };
 
-    /**
-     * @brief 单轴在当前周期的原始实时反馈。
-     *
-     * 由 IgH 从 TxPDO 按原值写入，不执行单位、方向或零点处理。
-     */
-    struct AxisFeedback
+    struct SiasunServoTxPdo
     {
-        int32_t actual_position = 0;  // 0x6064 原始实际位置。
-        int32_t actual_velocity = 0;  // 0x606C 原始实际速度。
-        int16_t actual_torque = 0;  // 0x6077 原始实际转矩。
-        uint32_t error_code = 0;  // 原始错误码，兼容 16/32 bit PDO。
-        uint16_t statusword = 0;  // 0x6041 原始状态字。
-        int8_t mode_display = 0;  // 0x6061 原始模式反馈。
+        // Servo -> Master，算法只读。
 
-        uint8_t communication_valid = 0;  // 本周期该轴的通信数据是否有效。
+        int32_t actual_position = 0;       // 0x6064:00
+        uint32_t digital_inputs = 0;       // 0x60FD:00
+        int32_t object_6063_00 = 0;        // 0x6063:00
+        int32_t object_6069_00 = 0;        // 0x6069:00
+        uint32_t error_code = 0;           // 0x603F:00，SIASUN 为 32 bit
+        int32_t actual_velocity = 0;       // 0x606C:00
+        uint16_t statusword = 0;           // 0x6041:00
+        int16_t actual_torque = 0;         // 0x6077:00
+        int16_t actual_current = 0;        // 0x6078:00
+        int8_t operation_mode_display = 0; // 0x6061:00
+
+        uint16_t object_600b_00 = 0;
+        uint32_t object_600c_00 = 0;
+        uint32_t object_600d_01 = 0;
+        uint16_t object_600d_02 = 0;
+        uint32_t object_600d_03 = 0;
+        uint32_t object_600d_04 = 0;
+        uint16_t object_600d_05 = 0;
+        uint16_t object_600d_06 = 0;
+        uint32_t object_600d_07 = 0;
+        uint32_t object_600d_08 = 0;
+        uint16_t object_600d_09 = 0;
+        uint16_t object_600d_0a = 0;
+        uint32_t object_600d_0b = 0;
+        uint32_t object_600d_0c = 0;
+        uint32_t object_600d_0d = 0;
     };
 
-    /**
-     * @brief 算法在当前周期给出的单轴原始运动目标。
-     *
-     * IgH 按原值写入 RxPDO，不执行单位、方向或零点处理。控制字和驱动
-     * 运行模式仍由 IgH 内部的 CiA402 命令调度生成。
-     */
-    struct AxisSetpoint
+    struct SiasunServoCycleData
     {
-        int32_t target_position = 0;  // 0x607A 原始目标位置。
-        int32_t target_velocity = 0;  // 0x60FF 原始目标速度。
-        int16_t target_torque = 0;  // 0x6071 原始目标转矩。
+        SiasunServoRxPdo rx{};
+        SiasunServoTxPdo tx{};
+
+        // 不是 PDO，由主站填写。
+        uint8_t communication_valid = 0;
     };
 
-    /**
-     * @brief 算法提交给 IgH 的高层服务请求。
-     *
-     * 多个字段允许在同一周期同时置位。是否调用、调用顺序及跨周期
-     * 状态管理由 IgH 上层逻辑决定；本公共接口不规定业务调度策略。
-     */
-    struct RobotServiceRequest
+    struct SiasunEndIoRxPdo
     {
-        uint8_t clear_error = 0;  // 非 0 时请求清除机器人本体轴故障。
-        uint8_t power_request_valid = 0;  // 非 0 时本周期 power_enable 字段有效。
-        uint8_t power_enable = 0;  // 有效的 Power 请求中，非 0 为使能，0 为断使能。
+        // Master -> EndIO，算法写入。
 
-        uint8_t switch_mode = 0;  // 非 0 时请求切换到 target_mode。
-        RobotMode target_mode = RobotMode::kCsp;  // 模式切换请求的目标模式。
+        uint8_t led_work_control = 0;
+        uint8_t digital_outputs_control = 0;
+        uint16_t rs485_outputs_count = 0;
+        uint16_t rs485_outputs_length = 0;
+        uint8_t rs485_outputs_data[32]{};
+    };
 
-        uint8_t home = 0;  // 非 0 时请求启动或维持回零业务。
+    struct SiasunEndIoTxPdo
+    {
+        // EndIO -> Master，算法只读。
+
+        uint8_t error_code = 0;
+        uint8_t digital_inputs = 0;
+        uint16_t analog_voltage_1 = 0;
+        uint16_t analog_voltage_2 = 0;
+        int16_t temperature = 0;
+        int16_t acceleration_x = 0;
+        int16_t acceleration_y = 0;
+        int16_t acceleration_z = 0;
+        uint16_t rs485_inputs_count = 0;
+        uint16_t rs485_inputs_length = 0;
+        uint8_t rs485_inputs_data[32]{};
+    };
+
+    struct SiasunEndIoCycleData
+    {
+        SiasunEndIoRxPdo rx{};
+        SiasunEndIoTxPdo tx{};
+
+        // 不是 PDO，由主站填写。
+        uint8_t communication_valid = 0;
     };
 
     /**
@@ -92,15 +123,21 @@ namespace robot_interface
      */
     struct RobotCycleData
     {
-        AxisFeedback robot_feedback[kMaxRobotAxisCount]{};  // 本周期反馈，由 IgH 写入。
-        AxisSetpoint robot_setpoints[kMaxRobotAxisCount]{};  // 运动目标，由算法写入。
-        RobotServiceRequest service{};  // 本周期高层服务请求，由算法写入。
+        SiasunServoCycleData servos[kMaxSiasunServoCount]{};
+        SiasunEndIoCycleData endio{};
 
-        uint8_t robot_axis_count = 0;  // robot_feedback 和 robot_setpoints 中实际参与的轴数。
-        uint32_t cycle_time_ns = 0;    // 输入为 0 时使用库内默认 1 ms，非 0 时指定周期；库写回最终采用值。
-        uint64_t cycle_count = 0;  // 从 IgH 通信循环开始累计的周期号。
+        // 初始化成功后由底层填写实际数量。
+        uint8_t servo_count = 0;
+
+        // 整个 Domain 本周期是否完整。
+        uint8_t domain_data_valid = 0;
+
+        // 调用 init 前由算法设置；0 表示默认周期。
+        uint32_t cycle_time_ns = 0;
+
+        // 底层每周期递增。
+        uint64_t cycle_count = 0;
     };
-
 } // namespace robot_interface
 
 #endif
