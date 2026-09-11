@@ -12,9 +12,11 @@
  * 原始表示，字段顺序和位宽是算法与 IgH 共同遵守的内存契约。
  *
  * 周期中的数据所有权：
- * - IgH 写入 AxisFeedback；
- * - 算法读取 AxisFeedback，写入 AxisSetpoint 和 RobotServiceRequest；
- * - IgH 内部将服务请求转换为驱动命令后写回 PDO。
+ * - IgH 从设备 TxPDO 更新 servos[].tx、endio.tx 和通信状态；
+ * - 算法读取 TxPDO 数据，直接写入 servos[].rx 和 endio.rx；
+ * - 回调返回后，IgH 将算法填写的 RxPDO 数据原样传递给设备。
+ *
+ * 公共接口不包含 CiA402 业务请求或状态机；算法直接生成全部 RxPDO。
  */
 namespace robot_interface
 {
@@ -117,9 +119,9 @@ namespace robot_interface
     /**
      * @brief 机器人单个实时周期的公共交换数据。
      *
-     * IgH 在调用算法周期回调前更新 robot_feedback；算法在回调内更新
-     * robot_setpoints 和 service。回调返回后，IgH 使用这些结果驱动其
-     * 私有的 CiA402 命令调度与 PDO 写入流程。
+     * IgH 在调用算法周期回调前更新全部 TxPDO 和通信状态；算法在回调内
+     * 读取 TxPDO 并填写全部 RxPDO。回调返回后，IgH 不解释字段业务含义，
+     * 只负责将 RxPDO 原样写入对应设备的过程数据。
      */
     struct RobotCycleData
     {
